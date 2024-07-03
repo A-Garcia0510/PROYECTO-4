@@ -18,7 +18,15 @@ import numpy as np
 
 def haversine(lat1, lon1, lat2, lon2):
     #Función para calcular la distancia entre 2 puntos a partir de la longitud
-    pass
+    R = 6371.0  # Radio de la Tierra en kilómetros
+
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    distance = R * c
+
+    return distance
 def ejecutar_query_sqlite(database_name, table_name, columns='*', where_column=None, where_value=None):
     """
     Ejecuta una consulta SQL en una base de datos SQLite y retorna una lista con los resultados.
@@ -90,18 +98,28 @@ def combo_event2(value):
         marker_2.delete()
     except NameError:
         pass
-    result=ejecutar_query_sqlite('progra2024_final.db', 'personas_coordenadas',columns='Latitude,Longitude,Nombre,Apellido', where_column='RUT', where_value=value)
+    result=ejecutar_query_sqlite('datos.db', 'personas_coordenadas',columns='Latitude,Longitude,Nombre,Apellido', where_column='RUT', where_value=value)
     nombre_apellido=str(result[0][2])+' '+str(result[0][3])
     marker_2 = map_widget.set_marker(result[0][0], result[0][1], text=nombre_apellido)
    
     
 def combo_event(value):
-    pass
-    #mapas.set_address("moneda, santiago, chile")
-    #mapas.set_position(48.860381, 2.338594)  # Paris, France
-    #mapas.set_zoom(15)
-    #address = tkintermapview.convert_address_to_coordinates("London")
-    #print(address)
+    global marker_1
+    try:
+        marker_1.delete()
+    except NameError:
+        pass
+    result = ejecutar_query_sqlite('progra2024_final.db', 'personas_coordenadas', columns='Latitude,Longitude,Nombre,Apellido', where_column='RUT', where_value=value)
+    if result:
+        nombre_apellido = str(result[0][2]) + ' ' + str(result[0][3])
+        marker_1 = map_widget.set_marker(result[0][0], result[0][1], text=nombre_apellido)
+        
+        # Populate the second dropdown with RUTs
+        ruts = [row[0] for row in ejecutar_query_sqlite('progra2024_final.db', 'personas_coordenadas', columns='RUT')]
+        ruts.remove(value)  # Remove the selected RUT from the first dropdown
+        optionmenu_2.configure(values=ruts)
+        optionmenu_2.set("Select RUT")
+
 def center_window(window, width, height):
     # Obtener el tamaño de la ventana principal
     root.update_idletasks()
@@ -127,8 +145,27 @@ def setup_toplevel(window):
     label = ctk.CTkLabel(window, text="¿Estas seguro que quieres eliminar la siguiente informacion?")
     label.pack(padx=20, pady=20)
     
-def calcular_distancia(RUT1,RUT2):
-    pass
+def calcular_distancia():
+        rut1 = optionmenu_1.get()
+        rut2 = optionmenu_2.get()
+    
+        if rut1 == "Select RUT" or rut2 == "Select RUT":
+            CTkMessagebox.show_info(title="Error", message="Please select two valid RUTs")
+            return
+    
+        result1 = ejecutar_query_sqlite('progra2024_final.db', 'personas_coordenadas', columns='Latitude,Longitude', where_column='RUT', where_value=rut1)
+        result2 = ejecutar_query_sqlite('progra2024_final.db', 'personas_coordenadas', columns='Latitude,Longitude', where_column='RUT', where_value=rut2)
+    
+        if result1 and result2:
+            lat1, lon1 = result1[0]
+            lat2, lon2 = result2[0]
+        
+            distancia = haversine(lat1, lon1, lat2, lon2)
+            distance_label.configure(text=f"Distancia: {distancia:.2f} km")
+        
+        # Draw line between the two markers
+            map_widget.set_path([(lat1, lon1), (lat2, lon2)], color="red")
+
 
 
 def guardar_data(datos):
@@ -269,8 +306,6 @@ def eliminar_datos(selected_data, datos):
     mostrar_datos(updated_data)
 
     
-    
-    
 def select_frame_by_name(name):
     home_button.configure(fg_color=("gray75", "gray25") if name == "home" else "transparent")
     frame_2_button.configure(fg_color=("gray75", "gray25") if name == "frame_2" else "transparent")
@@ -301,11 +336,13 @@ def frame_3_button_event():
 def change_appearance_mode_event(new_appearance_mode):
     ctk.set_appearance_mode(new_appearance_mode)
 def mapas(panel):
-    # create map widget
-    map_widget = tkintermapview.TkinterMapView(panel,width=800, height=500, corner_radius=0)
-    #map_widget.place(relx=0.5, rely=0.5, anchor=tkinter.CENTER)
-    map_widget.pack(fill=ctk.BOTH, expand=True)
+    map_widget = tkintermapview.TkinterMapView(panel, width=800, height=800, corner_radius=0)
+    map_widget.pack(padx=20, pady=10)
+    map_widget.set_position(-33.4691, -70.641)
+    map_widget.set_zoom(15)
     return map_widget
+
+   
 # Crear la ventana principal
 root = ctk.CTk()
 root.title("Proyecto Final progra I 2024")
@@ -349,8 +386,7 @@ frame_3_button = ctk.CTkButton(navigation_frame, corner_radius=0, height=40, bor
                                image=add_user_image, anchor="w", command=frame_3_button_event)
 frame_3_button.grid(row=3, column=0, sticky="ew")
 
-appearance_mode_menu = ctk.CTkOptionMenu(navigation_frame, values=["Light", "Dark", "System"],
-                                         command=change_appearance_mode_event)
+appearance_mode_menu = ctk.CTkOptionMenu(navigation_frame, values=["Light", "Dark", "System"], command=change_appearance_mode_event)
 appearance_mode_menu.grid(row=6, column=0, padx=20, pady=20, sticky="s")
 
 # Crear el marco principal de inicio
@@ -377,7 +413,6 @@ home_frame_cargar_datos.grid(row=0, column=1, padx=4, pady=4)
 
 scrollable_frame = ctk.CTkScrollableFrame(master=data_panel_inferior)
 scrollable_frame.grid(row=0, column=0,sticky="nsew")
-
 
 
 # Crear el segundo marco
@@ -410,18 +445,37 @@ top_left_panel.pack(side=ctk.LEFT, fill=ctk.X, expand=True)
 top_right_panel = ctk.CTkFrame(top_frame)
 top_right_panel.pack(side=ctk.RIGHT, fill=ctk.X, expand=True)
 
-# Agregar un Combobox al panel superior izquierdo
-combobox_left = ctk.CTkComboBox(top_left_panel, values=["Opción 1", "Opción 2", "Opción 3"])
+# Función para obtener países desde la base de datos
+def obtener_paises_desde_db(db_path):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT Pais FROM Personas")
+    paises = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return paises
 
+paises = obtener_paises_desde_db('progra2024_final.db')
+paises.insert(0, 'Seleccione país')  # Agregar una opción predeterminada
+combobox_left = ctk.CTkComboBox(top_left_panel, values=paises)
 combobox_left.pack(pady=20, padx=20)
+combobox_left.bind("<<ComboboxSelected>>",'seleccionar_pais')
+# Función para obtener estados emocionales desde la base de datos
+def obtener_estados_emocionales_desde_db(db_path):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT Estado_Emocional FROM Personas")
+    estados_emocionales = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return estados_emocionales
 
+estados_emocionales = obtener_estados_emocionales_desde_db('progra2024_final.db')
+estados_emocionales.insert(0, 'Seleccione Estado Emocional')
 # Agregar un Combobox al panel superior derecho
-combobox_right = ctk.CTkComboBox(top_right_panel, values=["Opción 1", "Opción 2", "Opción 3"])
+combobox_right = ctk.CTkComboBox(top_right_panel, values=estados_emocionales)
 combobox_right.pack(pady=20, padx=20)
 # Crear el gráfico de barras en el panel izquierdo
-fig1, ax1 = plt.subplots()
 profesiones = ["Profesion A", "Profesion B", "Profesion C", "Profesion D", "Profesion E"]
-paises = ["País 1", "País 2", "País 3", "País 4", "País 5"]
+fig1, ax1 = plt.subplots()
 x = np.arange(len(profesiones))
 y = np.random.rand(len(profesiones))
 ax1.bar(x, y)
@@ -452,7 +506,6 @@ canvas2 = FigureCanvasTkAgg(fig2, master=right_panel)
 canvas2.draw()
 canvas2.get_tk_widget().pack(side=ctk.TOP, fill=ctk.BOTH, expand=True)
 
-
 # Crear el tercer marco
 third_frame = ctk.CTkFrame(root, corner_radius=0, fg_color="transparent")
 third_frame.grid_rowconfigure(0, weight=1)
@@ -462,15 +515,26 @@ third_frame.grid_rowconfigure(1, weight=3)  # Panel inferior 3/4 más grande
 third_frame_top =  ctk.CTkFrame(third_frame, fg_color="gray")
 third_frame_top.grid(row=0, column=0,  sticky="nsew", padx=5, pady=5)
 
-third_frame_inf =  ctk.CTkFrame(third_frame, fg_color="lightgreen")
-third_frame_inf.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
-map_widget=mapas(third_frame_inf)
-label_rut = ctk.CTkLabel(third_frame_top, text="RUT",font=ctk.CTkFont(size=15, weight="bold"))
-label_rut.grid(row=0, column=0, padx=5, pady=5)
-optionmenu_1 = ctk.CTkOptionMenu(third_frame_top, dynamic_resizing=True,
-                                                        values=["Value 1", "Value 2", "Value Long Long Long"],command=lambda value:combo_event(value))
-optionmenu_1.grid(row=0, column=1, padx=5, pady=(5, 5))
+third_frame = ctk.CTkFrame(root, corner_radius=0, fg_color="transparent")
+label_3 = ctk.CTkLabel(third_frame, text="Seleccionar datos", font=ctk.CTkFont(size=20, weight="bold"))
+label_3.grid(row=0, column=0, padx=30, pady=30)
 
+optionmenu_1 = ctk.CTkOptionMenu(third_frame, values=["Select RUT"], command=combo_event)
+optionmenu_1.grid(row=1, column=0, padx=20, pady=10)
+
+optionmenu_2 = ctk.CTkOptionMenu(third_frame, values=["Select RUT"], command=combo_event2)
+optionmenu_2.grid(row=2, column=0, padx=20, pady=10)
+
+calcular_button = ctk.CTkButton(third_frame, text="Calcular distancia", command=calcular_distancia)
+calcular_button.grid(row=3, column=0, padx=20, pady=10)
+
+distance_label = ctk.CTkLabel(third_frame, text="Distancia: ")
+distance_label.grid(row=4, column=0, padx=20, pady=10)
+
+map_frame = ctk.CTkFrame(third_frame, width=800, height=800)
+map_frame.grid(row=5, column=0, padx=20, pady=10)
+
+map_widget = mapas(map_frame)
 
 # Seleccionar el marco predeterminado
 select_frame_by_name("home")
