@@ -263,6 +263,75 @@ data_panel_superior.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
 boton_imprimir = ctk.CTkButton(master=data_panel_superior, text="Seleccionar archivo", command=seleccionar_archivo)
 boton_imprimir.grid(row=0, column=1, pady=(0, 0))
 
+second_frame = ctk.CTkFrame(root, corner_radius=0, fg_color="transparent")
+second_frame.grid_rowconfigure(0, weight=1)
+second_frame.grid_columnconfigure(0, weight=1)
+second_frame.grid_rowconfigure(1, weight=1)
+second_frame.grid_columnconfigure(1, weight=1)
+
+# Crear el frame superior para los comboboxes
+top_frame = ctk.CTkFrame(second_frame)
+top_frame.pack(side=ctk.TOP, fill=ctk.X)
+
+# Crear el frame inferior para los dos gráficos
+bottom_frame = ctk.CTkFrame(second_frame)
+bottom_frame.pack(side=ctk.TOP, fill=ctk.BOTH, expand=True)
+
+# Crear los paneles izquierdo y derecho para los gráficos
+left_panel = ctk.CTkFrame(bottom_frame)
+left_panel.pack(side=ctk.LEFT, fill=ctk.BOTH, expand=True)
+
+right_panel = ctk.CTkFrame(bottom_frame)
+right_panel.pack(side=ctk.RIGHT, fill=ctk.BOTH, expand=True)
+
+# Crear los paneles superior izquierdo y derecho para los comboboxes
+top_left_panel = ctk.CTkFrame(top_frame)
+top_left_panel.pack(side=ctk.LEFT, fill=ctk.X, expand=True)
+
+top_right_panel = ctk.CTkFrame(top_frame)
+top_right_panel.pack(side=ctk.RIGHT, fill=ctk.X, expand=True)
+
+# Agregar un Combobox al panel superior izquierdo
+combobox_left = ctk.CTkComboBox(top_left_panel, values=["Opción 1", "Opción 2", "Opción 3"])
+combobox_left.pack(pady=20, padx=20)
+
+# Agregar un Combobox al panel superior derecho
+combobox_right = ctk.CTkComboBox(top_right_panel, values=["Opción 1", "Opción 2", "Opción 3"])
+combobox_right.pack(pady=20, padx=20)
+# Crear el gráfico de barras en el panel izquierdo
+fig1, ax1 = plt.subplots()
+profesiones = ["Profesion A", "Profesion B", "Profesion C", "Profesion D", "Profesion E"]
+paises = ["País 1", "País 2", "País 3", "País 4", "País 5"]
+x = np.arange(len(profesiones))
+y = np.random.rand(len(profesiones))
+ax1.bar(x, y)
+ax1.set_xticks(x)
+ax1.set_xticklabels(profesiones)
+ax1.set_xlabel("Profesiones")
+ax1.set_ylabel("Numero de profesionales")
+ax1.set_title("Profesiones vs Paises")
+
+# Integrar el gráfico en el panel izquierdo
+canvas1 = FigureCanvasTkAgg(fig1, master=left_panel)
+canvas1.draw()
+canvas1.get_tk_widget().pack(side=ctk.TOP, fill=ctk.BOTH, expand=True)
+
+# Crear el gráfico de torta en el panel derecho
+fig2, ax2 = plt.subplots()
+labels = 'A', 'B', 'C', 'D'
+sizes = [15, 30, 45, 10]
+colors = ['gold', 'yellowgreen', 'lightcoral', 'lightskyblue']
+explode = (0.1, 0, 0, 0)  # explotar la porción 1
+
+ax2.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%', shadow=True, startangle=140)
+ax2.axis('equal')  # para que el gráfico sea un círculo
+ax2.set_title("Estado emocional vs profesion")
+
+# Integrar el gráfico de torta en el panel derecho
+canvas2 = FigureCanvasTkAgg(fig2, master=right_panel)
+canvas2.draw()
+canvas2.get_tk_widget().pack(side=ctk.TOP, fill=ctk.BOTH, expand=True)
+
 third_frame = ctk.CTkFrame(root, corner_radius=0, fg_color="transparent")
 third_frame.grid_rowconfigure(0, weight=1)
 third_frame.grid_columnconfigure(0, weight=1)
