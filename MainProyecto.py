@@ -1,7 +1,7 @@
 import math
 import customtkinter as ctk
 import os
-import tkinter
+import tkinter as tk
 from PIL import Image
 from tkinter import filedialog
 import pandas as pd
@@ -76,14 +76,8 @@ def get_country_city(lat,long):
     print(country)
     city = tkintermapview.convert_coordinates_to_city(lat, long)
     return country,city
-# Definir la función para convertir UTM a latitud y longitud
-def utm_to_latlong(easting, northing, zone_number, zone_letter):
-    # Crear el proyector UTM
-    utm_proj = pyproj.Proj(proj='utm', zone=zone_number, datum='WGS84')
-    
-    # Convertir UTM a latitud y longitud
-    longitude, latitude = utm_proj(easting, northing, inverse=True)
-    return round(latitude,2), round(longitude,2)
+
+
 def insertar_data(data:list):
     pass
     #necesitamos convertir las coordenadas UTM a lat long
@@ -120,19 +114,52 @@ def center_window(window, width, height):
 
 def setup_toplevel(window):
     window.geometry("400x300")
-    window.title("Modificar datos")
+    window.title("Eliminar Datos")
     center_window(window, 400, 300)  # Centrar la ventana secundaria
     window.lift()  # Levanta la ventana secundaria
     window.focus_force()  # Forzar el enfoque en la ventana secundaria
     window.grab_set()  # Evita la interacción con la ventana principal
 
-    label = ctk.CTkLabel(window, text="ToplevelWindow")
+    label = ctk.CTkLabel(window, text="¿Estas seguro que quieres eliminar la siguiente informacion?")
     label.pack(padx=20, pady=20)
+    
 def calcular_distancia(RUT1,RUT2):
     pass
-def guardar_data(row_selector):
-    print(row_selector.get())
-    print(row_selector.table.values)
+
+
+def guardar_data(datos):
+    # Convertir coordenadas UTM a latitud y longitud y actualizar el DataFrame
+    for idx, data in datos.iterrows():
+        lat, long = utm_to_latlong(data['UTM_Easting'], data['UTM_Northing'], data['UTM_Zone_Number'], data['UTM_Zone_Letter'])  # Ajustar zona y letra según tus datos
+        datos.at[idx, 'Latitud'] = lat
+        datos.at[idx, 'Longitud'] = long
+
+    # Actualizar la tabla con los nuevos datos
+    mostrar_datos(datos)
+    agregar_df_a_sqlite(datos,'base_de_datos_MOD.db','TABLAS')
+    def show_info():
+    # Default messagebox for showing some information
+        CTkMessagebox(title="Info", message="Datos Actualizados!")
+    show_info()
+    
+
+    
+
+
+
+# Función para convertir UTM a latitud y longitud
+def utm_to_latlong(easting, northing, zone_number, zone_letter):
+    # Crear el proyector UTM con el sistema de coordenadas WGS84
+    utm_proj = pyproj.Proj(proj='utm', zone=zone_number, datum='WGS84')
+
+    # Convertir las coordenadas UTM a latitud y longitud
+    longitude, latitude = utm_proj(easting, northing, inverse=True)
+
+    # Redondear las coordenadas a 2 decimales
+    return round(latitude, 2), round(longitude, 2)
+
+    
+    
 def editar_panel(root):
     global toplevel_window
     if toplevel_window is None or not toplevel_window.winfo_exists():
@@ -140,38 +167,100 @@ def editar_panel(root):
         setup_toplevel(toplevel_window)
     else:
         toplevel_window.focus()
+
 # Función para manejar la selección del archivo
 def seleccionar_archivo():
     archivo = filedialog.askopenfilename(filetypes=[("Archivos CSV", "*.csv")])
     if archivo:
         print(f"Archivo seleccionado: {archivo}")
-        mostrar_datos(archivo)
+        
+        leer_archivo_csv(archivo)
 def on_scrollbar_move(*args):
     canvas.yview(*args)
     canvas.bbox("all")
+    
 def leer_archivo_csv(ruta_archivo):
     try:
-        datos = pd.read_csv(ruta_archivo)
+        datos = pd.read_csv(ruta_archivo,sep=',')
+        agregar_df_a_sqlite(datos,'progra2024_final.db','TABLAS')
         mostrar_datos(datos)
     except Exception as e:
-        print(f"Error al leer el archivo CSV: {e}")
+            print(f"Error al leer el archivo CSV: {e}")
+
+selected_data=[]
 
 # Función para mostrar los datos en la tabla
 def mostrar_datos(datos):
-    # Botón para imprimir las filas seleccionadas
-    boton_imprimir = ctk.CTkButton(
-        master=home_frame, text="guardar informacion", command=lambda: guardar_data())
-    boton_imprimir.grid(row=2, column=0, pady=(0, 20))
-    
-    # Botón para imprimir las filas seleccionadas
-    boton_imprimir = ctk.CTkButton(
-        master=data_panel_superior, text="modificar dato", command=lambda: editar_panel(root))
-    boton_imprimir.grid(row=0, column=2, pady=(0, 0))
+    global selected_data
+    selected_rows = set()
 
-    # Botón para imprimir las filas seleccionadas
+    # Eliminar cualquier tabla existente
+    for widget in scrollable_frame.winfo_children():
+        widget.destroy()
+
+
+    def show(cell):
+        global selected_data
+        row_index = cell["row"]
+        if row_index == 0:
+            return
+        if row_index in selected_rows:
+            table.deselect_row(row_index)
+            selected_rows.remove(row_index)
+        else:
+            table.select_row(row_index)
+            selected_rows.add(row_index)
+        selected_data.clear()
+        selected_data.extend([datos.iloc[idx - 1].tolist() for idx in selected_rows])
+        print("Filas seleccionadas:", selected_data)
+
+    value = [list(datos.columns)] + datos.values.tolist()
+    table = CTkTable(master=scrollable_frame, row=len(value), column=len(value[0]), values=value, command=show, header_color="green")
+    table.pack(expand=True, fill="both", padx=20, pady=20)
+
     boton_imprimir = ctk.CTkButton(
-        master=data_panel_superior, text="Eliminar dato", command=lambda: editar_panel(root),fg_color='purple',hover_color='red')
-    boton_imprimir.grid(row=0, column=3, padx=(10, 0))
+        master=home_frame, text="Guardar información", command=lambda: guardar_data(datos))
+    boton_imprimir.grid(row=2, column=0, pady=(0, 20))
+
+    boton_modificar = ctk.CTkButton(
+        master=data_panel_superior, text="Modificar dato", command=lambda: editar_panel())
+    boton_modificar.grid(row=0, column=2, pady=(0, 0))
+
+    boton_eliminar = ctk.CTkButton(
+        master=data_panel_superior, text="Eliminar dato", command=lambda: eliminar_panel(root, selected_data, datos),fg_color='purple',hover_color='red')
+    boton_eliminar.grid(row=0, column=3, padx=4, pady=4)
+   
+    
+def eliminar_panel(root, selected_data, datos):
+    if selected_data:
+        mensaje = f"Peligro vas a eliminar: {selected_data}"
+        toplevel_window = ctk.CTkToplevel(root)
+        setup_toplevel(toplevel_window)
+        label = ctk.CTkLabel(toplevel_window, text=mensaje)
+        label.pack(padx=20, pady=20)
+
+        def confirmar_eliminacion():
+            eliminar_datos(selected_data, datos)
+            toplevel_window.destroy()
+
+        def cancelar_eliminacion():
+            toplevel_window.destroy()
+
+        boton_aceptar = ctk.CTkButton(toplevel_window, text="ACEPTAR", command=confirmar_eliminacion)
+        boton_aceptar.pack(padx=20, pady=10)
+        boton_cancelar = ctk.CTkButton(toplevel_window, text="CANCELAR", command=cancelar_eliminacion)
+        boton_cancelar.pack(padx=20, pady=10)
+
+def eliminar_datos(selected_data, datos):
+    global updated_data
+    for row in selected_data:
+        datos = datos[~(datos == row).all(axis=1)]
+    updated_data = datos
+    mostrar_datos(updated_data)
+
+    
+    
+    
 def select_frame_by_name(name):
     home_button.configure(fg_color=("gray75", "gray25") if name == "home" else "transparent")
     frame_2_button.configure(fg_color=("gray75", "gray25") if name == "frame_2" else "transparent")
@@ -274,7 +363,7 @@ data_panel_inferior.grid_columnconfigure(0, weight=1)
 home_frame_large_image_label = ctk.CTkLabel(data_panel_superior, text="Ingresa el archivo en formato .csv",font=ctk.CTkFont(size=15, weight="bold"))
 home_frame_large_image_label.grid(row=0, column=0, padx=15, pady=15)
 home_frame_cargar_datos=ctk.CTkButton(data_panel_superior, command=seleccionar_archivo,text="Cargar Archivo",fg_color='green',hover_color='gray')
-home_frame_cargar_datos.grid(row=0, column=1, padx=15, pady=15)
+home_frame_cargar_datos.grid(row=0, column=1, padx=4, pady=4)
 
 scrollable_frame = ctk.CTkScrollableFrame(master=data_panel_inferior)
 scrollable_frame.grid(row=0, column=0,sticky="nsew")
@@ -290,6 +379,7 @@ second_frame.grid_columnconfigure(1, weight=1)
 
 # Crear el frame superior para los comboboxes
 top_frame = ctk.CTkFrame(second_frame)
+
 top_frame.pack(side=ctk.TOP, fill=ctk.X)
 
 # Crear el frame inferior para los dos gráficos
@@ -312,6 +402,7 @@ top_right_panel.pack(side=ctk.RIGHT, fill=ctk.X, expand=True)
 
 # Agregar un Combobox al panel superior izquierdo
 combobox_left = ctk.CTkComboBox(top_left_panel, values=["Opción 1", "Opción 2", "Opción 3"])
+
 combobox_left.pack(pady=20, padx=20)
 
 # Agregar un Combobox al panel superior derecho
@@ -369,10 +460,6 @@ label_rut.grid(row=0, column=0, padx=5, pady=5)
 optionmenu_1 = ctk.CTkOptionMenu(third_frame_top, dynamic_resizing=True,
                                                         values=["Value 1", "Value 2", "Value Long Long Long"],command=lambda value:combo_event(value))
 optionmenu_1.grid(row=0, column=1, padx=5, pady=(5, 5))
-
-
-
-
 
 
 # Seleccionar el marco predeterminado
