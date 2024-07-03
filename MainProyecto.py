@@ -65,6 +65,10 @@ def agregar_df_a_sqlite(df, database_name, table_name):
     # Conectar a la base de datos SQLite
     conn = sqlite3.connect(database_name)
     
+    cursor= conn.cursor()
+    
+    cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+    
     # Agregar el DataFrame a la tabla SQLite
     df.to_sql(table_name, conn, if_exists='replace', index=False)
     
@@ -136,16 +140,21 @@ def guardar_data(datos):
 
     # Actualizar la tabla con los nuevos datos
     mostrar_datos(datos)
-    agregar_df_a_sqlite(datos,'base_de_datos_MOD.db','TABLAS')
+    
+    conn = sqlite3.connect('progra2024_final.db')
+    cursor = conn.cursor()
+    cursor.execute("DROP TABLE IF EXISTS TABLAS")
+    conn.close()
+    
+    # Actualizar la tabla con los nuevos datos
+    agregar_df_a_sqlite(datos[['RUT','Nombre', 'Apellido','Profesion','Pais','Estado_Emocional']], 'progra2024_final.db', 'Personas')
+    agregar_df_a_sqlite(datos[['UTM_Easting', 'UTM_Northing', 'UTM_Zone_Letter', 'UTM_Zone_Number', 'Latitud', 'Longitud']], 'progra2024_final.db', 'Coordenadas')
+    
     def show_info():
-    # Default messagebox for showing some information
         CTkMessagebox(title="Info", message="Datos Actualizados!")
+    
     show_info()
     
-
-    
-
-
 
 # Función para convertir UTM a latitud y longitud
 def utm_to_latlong(easting, northing, zone_number, zone_letter):
@@ -175,6 +184,7 @@ def seleccionar_archivo():
         print(f"Archivo seleccionado: {archivo}")
         
         leer_archivo_csv(archivo)
+
 def on_scrollbar_move(*args):
     canvas.yview(*args)
     canvas.bbox("all")
@@ -372,8 +382,8 @@ scrollable_frame.grid(row=0, column=0,sticky="nsew")
 
 # Crear el segundo marco
 second_frame = ctk.CTkFrame(root, corner_radius=0, fg_color="transparent")
-#second_frame.grid_rowconfigure(0, weight=1)
-#second_frame.grid_columnconfigure(0, weight=1)
+second_frame.grid_rowconfigure(0, weight=1)
+second_frame.grid_columnconfigure(0, weight=1)
 second_frame.grid_rowconfigure(1, weight=1)
 second_frame.grid_columnconfigure(1, weight=1)
 
